@@ -5,11 +5,10 @@ Second goal: print every button-3 token in Python files.
 
 Test routine: run this, open a Python file, type something, right click, check that the thing is written to stdout
 
-TODO Write a proper event reader, that accepts newlines in the text field
 TODO Clean up when Python windows are closed
 """
 
-from asyncio import run, create_task, FIRST_COMPLETED
+from asyncio import run, create_task
 from asyncio.subprocess import create_subprocess_exec, PIPE
 
 async def log_stream():
@@ -19,12 +18,6 @@ async def nine_stream_for(path):
     process = await create_subprocess_exec('9p', 'read', path, stdout=PIPE, stderr=PIPE)
     return process.stdout
 
-def handle_event(s):
-    origin = s[0]
-    cause = s[1]
-    start, end, flag, length, *text = s[2:].split()
-    if cause == 'L':
-        print(origin, cause, start, end, flag, length, text, flush=True)
 
 class PythonWindow():
     def __init__(self, wid):
