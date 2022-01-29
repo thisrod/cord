@@ -41,13 +41,41 @@ class PythonWindow():
     async def handle_events(self):
         await self.open_event_stream()
         while True:
-            txt = await self.event_stream.readline()
-            print(F'Event for window {self.wid}: {txt.decode()}', flush=True)
+            event = await WindowEvent.scan(self.event_stream)
+            print(F'Event for window {self.wid}: {event}', flush=True)
             # handle_event(txt.decode())
 
 
 class WindowEvent():
-    pass
+
+    def __init__(self, origin, cause, start, end, flag, text):
+        self.origin = origin
+        self.cause = cause
+        self.start = start
+        self.end = end
+        self.flag = flag
+        self.text = text
+
+    def __repr__(self):
+        return (
+            F'WindowEvent(origin={repr(self.origin)}, cause={repr(self.cause)}, '
+            F'start={repr(self.start)}, end={repr(self.end)}, '
+            F'flag={repr(self.flag)}, text={repr(self.text)})'
+        )
+
+    @classmethod
+    async def scan(cls, aStream):
+        s = await aStream.readline()
+        s = s.decode()
+        origin = s[0]
+        cause = s[1]
+        start, end, flag, length, text_line = s[2:].split(sep=' ', maxsplit=4)
+        length = int(length)
+        while len(text_line) < length+1:
+            s = await aStream.readline()
+            text_line += s.decode()
+        assert text_line[length:] == '\n'
+        return cls(origin, cause, int(start), int(end), int(flag), text_line[:length])
 
 
 async def main():
