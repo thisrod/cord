@@ -12,10 +12,6 @@ from asyncio import run, create_task
 from asyncio.subprocess import create_subprocess_exec, PIPE
 
 
-async def log_stream():
-    return await nine_stream_for("acme/log")
-
-
 async def nine_stream_for(path):
     process = await create_subprocess_exec("9p", "read", path, stdout=PIPE, stderr=PIPE)
     return process.stdout
@@ -39,16 +35,6 @@ class PythonWindow:
             event = await WindowEvent.scan(self.event_stream)
             print(f"Event for window {self.wid}: {event}", flush=True)
             # handle_event(txt.decode())
-
-
-class Editor:
-    """
-    An Acme instance with an associated rope project
-
-    Responsible for handling top-level Acme events
-    """
-
-    pass
 
 
 class WindowEvent:
@@ -93,18 +79,32 @@ class TaskSet:
         self._tasks |= {(wid, create_task(aCoroutine))}
 
 
-async def main():
-    event_tasks = TaskSet()
-    window_stream = await log_stream()
-    print("Started", flush=True)
-    while True:
-        txt = await window_stream.readline()
-        id, cmd, *name = txt.decode().split()
-        window = PythonWindow(id)
-        if cmd == "new" and name and name[0].endswith(".py"):
-            event_tasks.run(id, window.handle_events())
-            print(f"Opened {name[0]} in window {window.wid}", flush=True)
+class Editor:
+    """
+    An Acme instance with an associated rope project
+
+    Responsible for handling top-level Acme events.  This needs
+    access to the task set in order to cancel tasks for closed
+    windows.
+    """
+
+    def __init__(self, event_tasks=TaskSet()):
+        self._tasks = event_tasks
+
+    async def open_event_stream(self):
+        self.event_stream = await nine_stream_for(f"acme/log")
+
+    async def handle_events(self):
+        await self.open_event_stream()
+        print("Started", flush=True)
+        while True:
+            txt = await self.event_stream.readline()
+            id, cmd, *name = txt.decode().split()
+            window = PythonWindow(id)
+            if cmd == "new" and name and name[0].endswith(".py"):
+                self._tasks.run(id, window.handle_events())
+                print(f"Opened {name[0]} in window {window.wid}", flush=True)
 
 
 if __name__ == "__main__":
-    run(main())
+    run(Editor().handle_events())
