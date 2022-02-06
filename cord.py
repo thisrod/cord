@@ -23,7 +23,7 @@ class PythonWindow:
 
     @property
     def stream(self):
-        return EventStream(f"acme/{self.wid}/event", WindowEvent, self)
+        return EventStream(f"acme/{self.wid}/event", WindowEvent.scan, self)
 
     @property
     def wid(self):
@@ -34,25 +34,8 @@ class PythonWindow:
         print(f"Event for window {self.wid}: {event}", flush=True)
 
 
-class EventStream:
-    """Scan events, and pass them to a handler"""
-
-    def __init__(self, path, scanner, handler):
-        self.path = path
-        self.scanner = scanner
-        self.handler = handler
-
-    async def handle_events(self):
-        await self.open()
-        while True:
-            event = await self.scanner.scan(self.stream)
-            self.handler.handle_event(event)
-
-    async def open(self):
-        self.stream = await nine_stream_for(self.path)
-
-
 class WindowEvent:
+    # TODO consider a named tuple and a scan function
     def __init__(self, origin, cause, start, end, flag, text):
         self.origin = origin
         self.cause = cause
@@ -92,6 +75,24 @@ class TaskSet:
 
     def run(self, wid, aCoroutine):
         self._tasks |= {(wid, create_task(aCoroutine))}
+
+
+class EventStream:
+    """Scan events, and pass them to a handler"""
+
+    def __init__(self, path, scanner, handler):
+        self.path = path
+        self.scanner = scanner
+        self.handler = handler
+
+    async def handle_events(self):
+        await self.open()
+        while True:
+            event = await self.scanner(self.stream)
+            self.handler.handle_event(event)
+
+    async def open(self):
+        self.stream = await nine_stream_for(self.path)
 
 
 class Editor:
