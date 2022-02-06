@@ -82,8 +82,19 @@ class WindowEvent:
         return cls(origin, cause, int(start), int(end), int(flag), text_line[:length])
 
 
+class TaskSet:
+    """Record the scheduled tasks, and which windows they belong to"""
+
+    def __init__(self):
+        self._tasks = set()
+        """(Window ID, task) pairs.  Wid is None for Editor tasks"""
+
+    def run(self, wid, aCoroutine):
+        self._tasks |= {(wid, create_task(aCoroutine))}
+
+
 async def main():
-    event_tasks = set()
+    event_tasks = TaskSet()
     window_stream = await log_stream()
     print("Started", flush=True)
     while True:
@@ -91,7 +102,7 @@ async def main():
         id, cmd, *name = txt.decode().split()
         window = PythonWindow(id)
         if cmd == "new" and name and name[0].endswith(".py"):
-            event_tasks |= {create_task(window.handle_events())}
+            event_tasks.run(id, window.handle_events())
             print(f"Opened {name[0]} in window {window.wid}", flush=True)
 
 

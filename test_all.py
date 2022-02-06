@@ -11,6 +11,11 @@ class AsyncBytesIO(BytesIO):
         return super().readline()
 
 
+class Tasks(TestCase):
+    # TODO figure out how to test asyncio
+    pass
+
+
 class Event(TestCase):
     """
     Parsing of Acme window events
