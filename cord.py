@@ -91,6 +91,11 @@ class Editor:
     def __init__(self, event_tasks=TaskSet()):
         self._tasks = event_tasks
 
+    async def main(self):
+        """Schedule and await handle_events"""
+        self._tasks.run(None, self.handle_events())
+        await next(x for x in self._tasks._tasks)[1]
+
     async def open_event_stream(self):
         self.event_stream = await nine_stream_for(f"acme/log")
 
@@ -107,4 +112,4 @@ class Editor:
 
 
 if __name__ == "__main__":
-    run(Editor().handle_events())
+    run(Editor().main())
