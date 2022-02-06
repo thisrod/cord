@@ -95,6 +95,11 @@ class EventStream:
         self.stream = await nine_stream_for(self.path)
 
 
+async def scan_log_event(aStream):
+    txt = await aStream.readline()
+    return txt.decode().split()
+
+
 class Editor:
     """
     An Acme instance with an associated rope project
@@ -107,25 +112,23 @@ class Editor:
     def __init__(self, event_tasks=TaskSet()):
         self._tasks = event_tasks
 
-    async def main(self):
-        """Schedule and await handle_events"""
-        self._tasks.run(None, self.handle_events())
-        await next(x for x in self._tasks._tasks)[1]
+    @property
+    def stream(self):
+        return EventStream("acme/log", scan_log_event, self)
 
-    async def open_event_stream(self):
-        self.event_stream = await nine_stream_for(f"acme/log")
+    def handle_event(self, event):
+        id, cmd, *name = event
+        window = PythonWindow(id)
+        if cmd == "new" and name and name[0].endswith(".py"):
+            self._tasks.run(id, window.stream.handle_events())
+            print(f"Opened {name[0]} in window {window.wid}", flush=True)
 
-    async def handle_events(self):
-        await self.open_event_stream()
-        print("Started", flush=True)
-        while True:
-            txt = await self.event_stream.readline()
-            id, cmd, *name = txt.decode().split()
-            window = PythonWindow(id)
-            if cmd == "new" and name and name[0].endswith(".py"):
-                self._tasks.run(id, window.stream.handle_events())
-                print(f"Opened {name[0]} in window {window.wid}", flush=True)
+
+async def main():
+    editor = Editor()
+    editor._tasks.run(None, editor.stream.handle_events())
+    await next(x for x in editor._tasks._tasks)[1]
 
 
 if __name__ == "__main__":
-    run(Editor().main())
+    run(main())
