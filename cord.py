@@ -22,19 +22,34 @@ class PythonWindow:
         self._wid = wid
 
     @property
+    def stream(self):
+        return EventStream(f"acme/{self.wid}/event", WindowEvent, self)
+
+    @property
     def wid(self):
         """Acme ID of the window"""
         return self._wid
 
-    async def open_event_stream(self):
-        self.event_stream = await nine_stream_for(f"acme/{self.wid}/event")
+    def handle_event(self, event):
+        print(f"Event for window {self.wid}: {event}", flush=True)
+
+
+class EventStream:
+    """Scan events, and pass them to a handler"""
+
+    def __init__(self, path, scanner, handler):
+        self.path = path
+        self.scanner = scanner
+        self.handler = handler
 
     async def handle_events(self):
-        await self.open_event_stream()
+        await self.open()
         while True:
-            event = await WindowEvent.scan(self.event_stream)
-            print(f"Event for window {self.wid}: {event}", flush=True)
-            # handle_event(txt.decode())
+            event = await self.scanner.scan(self.stream)
+            self.handler.handle_event(event)
+
+    async def open(self):
+        self.stream = await nine_stream_for(self.path)
 
 
 class WindowEvent:
@@ -107,7 +122,7 @@ class Editor:
             id, cmd, *name = txt.decode().split()
             window = PythonWindow(id)
             if cmd == "new" and name and name[0].endswith(".py"):
-                self._tasks.run(id, window.handle_events())
+                self._tasks.run(id, window.stream.handle_events())
                 print(f"Opened {name[0]} in window {window.wid}", flush=True)
 
 
