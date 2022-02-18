@@ -6,11 +6,14 @@ Second goal: print every button-3 token in Python files.
 Test routine: run this, open a Python file, type something, right click, check that the thing is written to stdout
 
 TODO Clean up when Python windows are closed
+TODO make window and log events types of namedtuple
 """
 
+import os
 from asyncio import run, create_task
 from asyncio.subprocess import create_subprocess_exec, PIPE
 
+from rope.base.project import Project
 
 async def nine_stream_for(path):
     process = await create_subprocess_exec("9p", "read", path, stdout=PIPE, stderr=PIPE)
@@ -18,8 +21,12 @@ async def nine_stream_for(path):
 
 
 class PythonWindow:
-    def __init__(self, wid):
+    def __init__(self, project, wid):
         self._wid = wid
+        self.rope_module = self.make_rope_module(project)
+
+    def make_rope_module(self, project):
+        return project.find_module(self.path)
 
     @property
     def stream(self):
@@ -29,6 +36,11 @@ class PythonWindow:
     def wid(self):
         """Acme ID of the window"""
         return self._wid
+
+    @property
+    def path(self):
+        """Path of the file"""
+        pass
 
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
@@ -109,8 +121,12 @@ class Editor:
     windows.
     """
 
-    def __init__(self, event_tasks=TaskSet()):
+    def __init__(self, event_tasks=TaskSet(), project=None, project_path=os.getcwd()):
         self._tasks = event_tasks
+        if project is None:
+            self.rope_project = Project(project_path)
+        else:
+            self.rope_project = project
 
     @property
     def stream(self):
@@ -118,7 +134,7 @@ class Editor:
 
     def handle_event(self, event):
         id, cmd, *name = event
-        window = PythonWindow(id)
+        window = PythonWindow(self.rope_project, id)
         if cmd == "new" and name and name[0].endswith(".py"):
             self._tasks.run(id, window.stream.handle_events())
             print(f"Opened {name[0]} in window {window.wid}", flush=True)

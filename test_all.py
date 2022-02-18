@@ -1,8 +1,9 @@
 from unittest import TestCase, skip
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from io import BytesIO
 import asyncio
 
+import cord
 from cord import WindowEvent, PythonWindow, Editor
 
 
@@ -53,28 +54,42 @@ class Event(TestCase):
     def test_execute_expanded(self):
         self.assertEvent(b"Mx12 15 0 3 Del\n", "M", "x", 12, 15, 0, "Del")
 
-
-class WindowSetup(TestCase):
-    """Creating a window executes the expected rope actions"""
+class Window(TestCase):
 
     @skip
-    def test_construct(self):
-        with patch("rope.base.project.Project") as Project, patch.object(
-            PythonWindow, "path"
-        ) as path:
-            window = PythonWindow(666)
-            Project.find_module.assert_called_once_with(path)
+    def test_window_path(self):
+        """window.path makes the appropriate Acme queries"""
+        pass
+
+class RopeCalls(TestCase):
+
+    def test_construct_project(self):
+        """Constructing Editor constructs a Rope project for the current directory"""
+        with patch("cord.Project") as Project:
+            project_path = Mock()
+            editor = Editor(event_tasks=None, project_path=project_path)
+            Project.assert_called_once_with(project_path)
             self.assertEqual(
-                window.rope_module,
-                Project.find_module.assert_called_once_with.return_value,
+                editor.rope_project,
+                Project.return_value
             )
 
-
-class Look(TestCase):
-    """Look events call rope symbol lookup"""
+    def test_construct_module(self):
+        """Creating a window executes the expected rope actions"""
+        with patch.object(
+            PythonWindow, "path"
+        ) as path:
+            project = Mock()
+            window = PythonWindow(project, 666)
+            project.find_module.assert_called_once_with(path)
+            self.assertEqual(
+                window.rope_module,
+                project.find_module.return_value,
+            )
 
     @skip
     def test_handle_look(self):
+        """Look events call rope symbol lookup"""
         with patch(
             "rope.contrib.findit.find_definition"
         ) as find_definition, patch.object(
