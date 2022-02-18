@@ -56,10 +56,13 @@ class Event(TestCase):
 
 class Window(TestCase):
 
-    @skip
     def test_window_path(self):
         """window.path makes the appropriate Acme queries"""
-        pass
+        with patch('cord.nine_file_content', return_value='/tmp/foo.py Del Snarf') as mock_nfc:
+            window = PythonWindow(Mock(), 123)
+            path = window.path
+            mock_nfc.assert_called_with('acme/123/tag')
+            self.assertEqual(path, '/tmp/foo.py')
 
 class RopeCalls(TestCase):
 

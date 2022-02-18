@@ -12,6 +12,7 @@ TODO make window and log events types of namedtuple
 import os
 from asyncio import run, create_task
 from asyncio.subprocess import create_subprocess_exec, PIPE
+import subprocess
 
 from rope.base.project import Project
 
@@ -19,14 +20,15 @@ async def nine_stream_for(path):
     process = await create_subprocess_exec("9p", "read", path, stdout=PIPE, stderr=PIPE)
     return process.stdout
 
+def nine_file_content(path):
+    process = subprocess.run(["9p", "read", path], text=True, capture_output=True)
+    return process.stdout
+
 
 class PythonWindow:
     def __init__(self, project, wid):
         self._wid = wid
-        self.rope_module = self.make_rope_module(project)
-
-    def make_rope_module(self, project):
-        return project.find_module(self.path)
+        self.rope_module = project.find_module(self.path)
 
     @property
     def stream(self):
@@ -40,7 +42,8 @@ class PythonWindow:
     @property
     def path(self):
         """Path of the file"""
-        pass
+        tag = nine_file_content(f'acme/{self.wid}/tag')
+        return tag.partition(' ')[0]
 
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
