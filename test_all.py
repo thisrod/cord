@@ -1,5 +1,5 @@
 from unittest import TestCase, skip
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, PropertyMock
 from io import BytesIO
 import asyncio
 
@@ -54,34 +54,31 @@ class Event(TestCase):
     def test_execute_expanded(self):
         self.assertEvent(b"Mx12 15 0 3 Del\n", "M", "x", 12, 15, 0, "Del")
 
-class Window(TestCase):
 
+class Window(TestCase):
     def test_window_path(self):
         """window.path makes the appropriate Acme queries"""
-        with patch('cord.nine_file_content', return_value='/tmp/foo.py Del Snarf') as mock_nfc:
+        with patch(
+            "cord.nine_file_content", return_value="/tmp/foo.py Del Snarf"
+        ) as mock_nfc:
             window = PythonWindow(Mock(), 123)
             path = window.path
-            mock_nfc.assert_called_with('acme/123/tag')
-            self.assertEqual(path, '/tmp/foo.py')
+            mock_nfc.assert_called_with("acme/123/tag")
+            self.assertEqual(path, "/tmp/foo.py")
+
 
 class RopeCalls(TestCase):
-
     def test_construct_project(self):
         """Constructing Editor constructs a Rope project for the current directory"""
         with patch("cord.Project") as Project:
             project_path = Mock()
             editor = Editor(event_tasks=None, project_path=project_path)
             Project.assert_called_once_with(project_path)
-            self.assertEqual(
-                editor.rope_project,
-                Project.return_value
-            )
+            self.assertEqual(editor.rope_project, Project.return_value)
 
     def test_construct_module(self):
         """Creating a window executes the expected rope actions"""
-        with patch.object(
-            PythonWindow, "path"
-        ) as path:
+        with patch.object(PythonWindow, "path") as path:
             project = Mock()
             window = PythonWindow(project, 666)
             project.find_module.assert_called_once_with(path)
@@ -90,19 +87,59 @@ class RopeCalls(TestCase):
                 project.find_module.return_value,
             )
 
-    @skip
-    def test_handle_look(self):
+    def test_look_finds_definition(self):
         """Look events call rope symbol lookup"""
+        with patch("cord.find_definition") as find_definition, patch(
+            "cord.plumb"
+        ) as plumb, patch.object(
+            PythonWindow, "content", PropertyMock()
+        ) as fake_content:
+            project = Mock()
+            window = PythonWindow(project, 666)
+            text = fake_content.return_value
+            start = 1234
+            event = WindowEvent("M", "L", start, None, None, "")
+            window.handle_event(event)
+            expanded_event = WindowEvent("M", "L", start, None, None, Mock())
+            window.handle_event(expanded_event)
+            # Python indexes strings from 0, Acme from 1
+            # But Rope and Acme both number lines starting from 1
+            offset = start - 1
+            find_definition.assert_called_once_with(project, text, offset)
+
+    @skip
+    def test_look_plumbs_import(self):
+        """Look events call plumb with another file"""
+        with patch("rope.contrib.findit.find_definition") as find_definition, patch(
+            "cord.plumb"
+        ) as plumb:
+            project = Mock()
+            window = PythonWindow(project, 666)
+            event = WindowEvent("M", "L", 1234, None, None, Mock())
+            window.handle_event(event)
+            path = find_definition.return_value.resource.path
+            lineno = find_definition.return_value.resource.lineno
+            plumb.assert_called_once_with(path, lineno)
+
+    @skip
+    def test_look_plumbs_internal(self):
+        """Look events call plumb with this file"""
         with patch(
             "rope.contrib.findit.find_definition"
-        ) as find_definition, patch.object(
-            PythonWindow, "rope_module"
-        ) as module, patch.object(
-            Editor, "rope_project"
-        ) as project:
-            window = Editor().window(666)
-            text = Mock()
-            start = Mock()
-            event = WindowEvent("M", "L", start, None, None, text)
+        ) as find_definition, patch.object(PythonWindow, "path"), patch(
+            "cord.plumb"
+        ) as plumb:
+            project = Mock()
+            window = PythonWindow(project, 666)
+            find_definition.return_value.resource = None
+            event = WindowEvent("M", "L", 1234, None, None, Mock())
             window.handle_event(event)
-            find_definition.assert_called_once_with(project, start, text)
+            plumb.assert_called_once_with(
+                window.path, find_definition.return_value.lineno
+            )
+
+    @skip
+    def test_look_not_definition(self):
+        """A look event that doesn't find a Python definition is handled normally"""
+        with patch("rope.contrib.findit.find_definition") as find_definition:
+            find_definition.return_value = None

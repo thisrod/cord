@@ -15,20 +15,29 @@ from asyncio.subprocess import create_subprocess_exec, PIPE
 import subprocess
 
 from rope.base.project import Project
+from rope.contrib.findit import find_definition
+
 
 async def nine_stream_for(path):
     process = await create_subprocess_exec("9p", "read", path, stdout=PIPE, stderr=PIPE)
     return process.stdout
+
 
 def nine_file_content(path):
     process = subprocess.run(["9p", "read", path], text=True, capture_output=True)
     return process.stdout
 
 
+def plumb(path, lineno):
+    # Acme's address setting functions appear NYI
+    process = subprocess.run(["plumb", f"{path}:{lineno}"])
+
+
 class PythonWindow:
     def __init__(self, project, wid):
         self._wid = wid
         self.rope_module = project.find_module(self.path)
+        self.project = project
 
     @property
     def stream(self):
@@ -42,11 +51,18 @@ class PythonWindow:
     @property
     def path(self):
         """Path of the file"""
-        tag = nine_file_content(f'acme/{self.wid}/tag')
-        return tag.partition(' ')[0]
+        tag = nine_file_content(f"acme/{self.wid}/tag")
+        return tag.partition(" ")[0]
+
+    @property
+    def content(self):
+        """The body text"""
+        pass
 
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
+        if event.is_look() and event.text:
+            loc = find_definition(self.project, self.content, event.start - 1)
 
 
 class WindowEvent:
@@ -58,6 +74,9 @@ class WindowEvent:
         self.end = end
         self.flag = flag
         self.text = text
+
+    def is_look(self):
+        return self.cause in "lL"
 
     def __repr__(self):
         return (
