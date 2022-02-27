@@ -66,6 +66,14 @@ class Window(TestCase):
             mock_nfc.assert_called_with("acme/123/tag")
             self.assertEqual(path, "/tmp/foo.py")
 
+    def test_window_content(self):
+        """window.content makes the appropriate Acme queries"""
+        with patch(
+            "cord.nine_file_content") as mock_nfc:
+            window = PythonWindow(Mock(), 123)
+            text = window.content
+            mock_nfc.assert_called_with("acme/123/body")
+            self.assertEqual(text, mock_nfc.return_value)
 
 class RopeCalls(TestCase):
     def test_construct_project(self):

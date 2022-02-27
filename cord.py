@@ -57,7 +57,7 @@ class PythonWindow:
     @property
     def content(self):
         """The body text"""
-        pass
+        return nine_file_content(f"acme/{self.wid}/body")
 
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
