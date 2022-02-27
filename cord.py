@@ -3,7 +3,7 @@ Acme interface for Rope
 
 Second goal: print every button-3 token in Python files.
 
-Test routine: run this, open a Python file, type something, right click, check that the thing is written to stdout
+Test routine: run this, open bar.py, right click on call to bar, check for jump to definition
 
 TODO Clean up when Python windows are closed
 TODO make window and log events types of namedtuple
@@ -62,7 +62,11 @@ class PythonWindow:
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
         if event.is_look() and event.text:
-            loc = find_definition(self.project, self.content, event.start - 1)
+            print(f"In project: {self.project}", flush=True)
+            print(f"Looking for: {self.content[event.start : event.start +10]}", flush=True)
+            loc = find_definition(self.project, self.content, event.start )
+            print(f"Plumbing: {loc.resource.path}:{loc.lineno}", flush=True)
+            plumb(loc.resource.path, loc.lineno)
 
 
 class WindowEvent:

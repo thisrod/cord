@@ -76,6 +76,9 @@ class Window(TestCase):
             self.assertEqual(text, mock_nfc.return_value)
 
 class RopeCalls(TestCase):
+    # Acme character addresses and Python strings both count from 0
+    # Acme and Rope both count lines from 1
+
     def test_construct_project(self):
         """Constructing Editor constructs a Rope project for the current directory"""
         with patch("cord.Project") as Project:
@@ -110,23 +113,21 @@ class RopeCalls(TestCase):
             window.handle_event(event)
             expanded_event = WindowEvent("M", "L", start, None, None, Mock())
             window.handle_event(expanded_event)
-            # Python indexes strings from 0, Acme from 1
-            # But Rope and Acme both number lines starting from 1
-            offset = start - 1
-            find_definition.assert_called_once_with(project, text, offset)
+            find_definition.assert_called_once_with(project, text, start)
 
-    @skip
     def test_look_plumbs_import(self):
         """Look events call plumb with another file"""
-        with patch("rope.contrib.findit.find_definition") as find_definition, patch(
+        with patch("cord.find_definition") as find_definition, patch(
             "cord.plumb"
-        ) as plumb:
+        ) as plumb, patch.object(
+            PythonWindow, "content", PropertyMock()
+        ) as fake_content:
             project = Mock()
             window = PythonWindow(project, 666)
             event = WindowEvent("M", "L", 1234, None, None, Mock())
             window.handle_event(event)
             path = find_definition.return_value.resource.path
-            lineno = find_definition.return_value.resource.lineno
+            lineno = find_definition.return_value.lineno
             plumb.assert_called_once_with(path, lineno)
 
     @skip
