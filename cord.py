@@ -3,7 +3,7 @@ Acme interface for Rope
 
 Second goal: print every button-3 token in Python files.
 
-Test routine: run this, open bar.py, right click on call to bar, check for jump to definition, click on internal call, check jump
+Test routine: run this, open bar.py, right click on call to bar, check for jump to definition, click on internal call, check jump, look up "# once", check for jump
 
 TODO Clean up when Python windows are closed
 TODO make window and log events types of namedtuple
@@ -15,6 +15,7 @@ from asyncio.subprocess import create_subprocess_exec, PIPE
 import subprocess
 
 from rope.base.project import Project
+from rope.base.exceptions import BadIdentifierError
 from rope.contrib.findit import find_definition
 
 
@@ -26,6 +27,10 @@ async def nine_stream_for(path):
 def nine_file_content(path):
     process = subprocess.run(["9p", "read", path], text=True, capture_output=True)
     return process.stdout
+
+
+def nine_write_file(path, txt):
+    process = subprocess.run(["9p", "write", path], text=True, input=txt)
 
 
 def plumb(path, lineno):
@@ -59,20 +64,26 @@ class PythonWindow:
         """The body text"""
         return nine_file_content(f"acme/{self.wid}/body")
 
-    def parse_location(self, loc):
+    def jump_location(self, loc):
         """Extract path and line number from Rope location object"""
         path = loc.resource.path if loc.resource else self.path
-        return path, loc.lineno
+        print(f"Plumbing: {path}:{loc.lineno}", flush=True)
+        plumb(path, loc.lineno)
 
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
-        print(f"In project: {self.project}", flush=True)
         print(f"Looking for: {self.content[event.start : event.start +10]}", flush=True)
         if event.is_look() and event.text:
-            loc = find_definition(self.project, self.content, event.start )
-            path, lineno = self.parse_location(loc)
-            print(f"Plumbing: {path}:{lineno}", flush=True)
-            plumb(path, lineno)
+            try:
+                loc = find_definition(self.project, self.content, event.start )
+            except BadIdentifierError:
+                # send the event back for Acme to handle
+                print(f"Sending to acme/{self.wid}/event: ML{event.start} {event.end}", flush=True)
+                nine_write_file(f"acme/{self.wid}/event", f"ML{event.start} {event.end}\n")
+            else:
+                print(f"Jumping", flush=True)
+                self.jump_location(loc)
+
 
 
 class WindowEvent:

@@ -5,6 +5,7 @@ import asyncio
 
 import cord
 from cord import WindowEvent, PythonWindow, Editor
+from rope.base.exceptions import BadIdentifierError
 
 
 class AsyncBytesIO(BytesIO):
@@ -146,8 +147,17 @@ class RopeCalls(TestCase):
                 window.path, find_definition.return_value.lineno
             )
 
-    @skip
     def test_look_not_definition(self):
         """A look event that doesn't find a Python definition is handled normally"""
-        with patch("rope.contrib.findit.find_definition") as find_definition:
-            find_definition.return_value = None
+        with patch("cord.find_definition") as find_definition, patch.object(PythonWindow, "path"), patch(
+            "cord.plumb"
+        ) as plumb, patch.object(
+            PythonWindow, "content", PropertyMock()
+        ), patch("cord.nine_write_file") as mock_send:
+            project = Mock()
+            window = PythonWindow(project, 666)
+            find_definition.side_effect = BadIdentifierError
+            event = WindowEvent("M", "L", 1234, 1244, None, Mock())
+            window.handle_event(event)
+            mock_send.assert_called_once_with("acme/666/event", "ML1234 1244\n")
+            plumb.assert_not_called()
