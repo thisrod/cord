@@ -121,7 +121,7 @@ class RopeCalls(TestCase):
             "cord.plumb"
         ) as plumb, patch.object(
             PythonWindow, "content", PropertyMock()
-        ) as fake_content:
+        ):
             project = Mock()
             window = PythonWindow(project, 666)
             event = WindowEvent("M", "L", 1234, None, None, Mock())
@@ -130,14 +130,13 @@ class RopeCalls(TestCase):
             lineno = find_definition.return_value.lineno
             plumb.assert_called_once_with(path, lineno)
 
-    @skip
     def test_look_plumbs_internal(self):
         """Look events call plumb with this file"""
-        with patch(
-            "rope.contrib.findit.find_definition"
-        ) as find_definition, patch.object(PythonWindow, "path"), patch(
+        with patch("cord.find_definition") as find_definition, patch.object(PythonWindow, "path"), patch(
             "cord.plumb"
-        ) as plumb:
+        ) as plumb, patch.object(
+            PythonWindow, "content", PropertyMock()
+        ):
             project = Mock()
             window = PythonWindow(project, 666)
             find_definition.return_value.resource = None

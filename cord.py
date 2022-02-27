@@ -3,7 +3,7 @@ Acme interface for Rope
 
 Second goal: print every button-3 token in Python files.
 
-Test routine: run this, open bar.py, right click on call to bar, check for jump to definition
+Test routine: run this, open bar.py, right click on call to bar, check for jump to definition, click on internal call, check jump
 
 TODO Clean up when Python windows are closed
 TODO make window and log events types of namedtuple
@@ -59,14 +59,20 @@ class PythonWindow:
         """The body text"""
         return nine_file_content(f"acme/{self.wid}/body")
 
+    def parse_location(self, loc):
+        """Extract path and line number from Rope location object"""
+        path = loc.resource.path if loc.resource else self.path
+        return path, loc.lineno
+
     def handle_event(self, event):
         print(f"Event for window {self.wid}: {event}", flush=True)
+        print(f"In project: {self.project}", flush=True)
+        print(f"Looking for: {self.content[event.start : event.start +10]}", flush=True)
         if event.is_look() and event.text:
-            print(f"In project: {self.project}", flush=True)
-            print(f"Looking for: {self.content[event.start : event.start +10]}", flush=True)
             loc = find_definition(self.project, self.content, event.start )
-            print(f"Plumbing: {loc.resource.path}:{loc.lineno}", flush=True)
-            plumb(loc.resource.path, loc.lineno)
+            path, lineno = self.parse_location(loc)
+            print(f"Plumbing: {path}:{lineno}", flush=True)
+            plumb(path, lineno)
 
 
 class WindowEvent:
