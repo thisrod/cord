@@ -161,3 +161,12 @@ class RopeCalls(TestCase):
             window.handle_event(event)
             mock_send.assert_called_once_with("acme/666/event", "ML1234 1244\n")
             plumb.assert_not_called()
+
+    def test_execute_title_bar(self):
+        """An execute event in the title bar is handled normally"""
+        with patch("cord.nine_write_file") as mock_send:
+            project = Mock()
+            window = PythonWindow(project, 666)
+            event = WindowEvent("M", "x", 1234, 1244, None, Mock())
+            window.handle_event(event)
+            mock_send.assert_called_once_with("acme/666/event", "Mx1234 1244\n")

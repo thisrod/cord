@@ -3,7 +3,7 @@ Acme interface for Rope
 
 Second goal: print every button-3 token in Python files.
 
-Test routine: run this, open bar.py, right click on call to bar, check for jump to definition, click on internal call, check jump, look up "# once", check for jump
+Test routine: run this, open bar.py, right click on call to bar, check for jump to definition, click on internal call, check jump, look up "# once", check for jump, type echo wibble in title bar, execute, check for output
 
 TODO Clean up when Python windows are closed
 TODO make window and log events types of namedtuple
@@ -83,6 +83,10 @@ class PythonWindow:
             else:
                 print(f"Jumping", flush=True)
                 self.jump_location(loc)
+        elif event.is_exec() and event.text:
+            print(f"Sending to acme/{self.wid}/event: Mx{event.start} {event.end}", flush=True)
+            nine_write_file(f"acme/{self.wid}/event", f"Mx{event.start} {event.end}\n")
+
 
 
 
@@ -98,6 +102,9 @@ class WindowEvent:
 
     def is_look(self):
         return self.cause in "lL"
+
+    def is_exec(self):
+        return self.cause in "xX"
 
     def __repr__(self):
         return (
